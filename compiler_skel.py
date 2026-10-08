@@ -48,7 +48,7 @@ class Compiler:
     def select_stmt(self, s: stmt) -> list[instr]:
         instructions: list[instr]=[]
         match s:
-            case ast.Expr(ast.Call(ast.Name('print_int'), [exp])):
+            case ast.Expr(ast.Call(ast.Name('print'), [exp])):
                 instructions.extend([
                     x86_ast.Instr('movq', [self.select_arg(exp), x86_ast.Reg('rdi')]),
                     x86_ast.Callq('print_int', 1)
@@ -74,9 +74,17 @@ class Compiler:
                             x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
                             ])
                     case ast.BinOp(exp_left, ast.Add(), exp_right):
-                        ...
-                    case ast.BinOp(exp_left, ast.Add(), exp_right):     
-                        ...
+                        instructions.extend([
+                            x86_ast.Instr('movq', [self.select_arg(exp_left), x86_ast.Reg('rax')]),
+                            x86_ast.Instr('addq', [self.select_arg(exp_right), x86_ast.Reg('rax')]),
+                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            ])                        
+                    case ast.BinOp(exp_left, ast.Sub(), exp_right):     
+                        instructions.extend([
+                            x86_ast.Instr('movq', [self.select_arg(exp_left), x86_ast.Reg('rax')]),
+                            x86_ast.Instr('subq', [self.select_arg(exp_right), x86_ast.Reg('rax')]),
+                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            ])  
             case _:
                 raise Exception('error in select_stmt' + repr(s)) 
         return instructions     
@@ -104,6 +112,17 @@ class Compiler:
         return i        
 
     def assign_homes(self, p: X86Program) -> X86Program:
+        # match p:
+        #     case X86Program:
+        #         body: list[instr] = p.body
+
+        #         for s in body:
+        #             match s:
+        #                 case Instr()
+        #         return X86Program(program_body)
+        #     case _:
+        #         raise Exception('Error in assign_homes' + repr(p))    
+
         return p       
 
     ############################################################################
@@ -121,4 +140,16 @@ class Compiler:
     ############################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        return p
+        instructions: list[x86_ast.instr] = []
+        instructions.extend([
+            x86_ast.Instr('pushq', [x86_ast.Reg('rbp')]),
+            x86_ast.Instr('movq',[x86_ast.Reg('rsp'), x86_ast.Reg('rbp')]),
+        ])
+        instructions.extend(p.body)
+        instructions.extend([
+            x86_ast.Instr('movq',[x86_ast.Reg('rbp'), x86_ast.Reg('rsp')]),
+            x86_ast.Instr('popq', [x86_ast.Reg('rbp')]),
+            x86_ast.Instr('ret', []),
+
+        ])
+        return X86Program(instructions)

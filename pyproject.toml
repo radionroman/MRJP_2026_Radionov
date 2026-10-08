@@ -23,3 +23,9 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = 'ast_utils'
 ignore_errors = true
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+]

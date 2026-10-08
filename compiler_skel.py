@@ -1,6 +1,7 @@
 # Adapted by permission from https://github.com/IUCompilerCourse/python-student-support-code
 # See EOC-LICENSE for details
 import ast
+import x86_ast
 from ast import (expr, stmt, Module, Name)
 from x86_ast import (X86Program, instr, arg, Variable)
 import os
@@ -17,16 +18,13 @@ class Compiler:
     ############################################################################
 
     def rco_exp(self, e: expr, need_atomic : bool) -> tuple[expr, Temporaries]:
-        # YOUR CODE HERE
-        pass        
+        return (e, [])
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-        # YOUR CODE HERE
-        pass        
+        return [s]        
 
     def remove_complex_operands(self, p: Module) -> Module:
-        # YOUR CODE HERE
-        pass                
+        return p               
 
     ############################################################################
     # Select Instructions
@@ -36,72 +34,91 @@ class Compiler:
     # (But there is no type for atoms, so the type of e is given as expr.)
     def select_arg(self, e: expr) -> arg:
         match e:
-        case Constant(value):
-            match value:
-                case int():
-                    return ...
-                case _:
-                    raise ...
-        case Name(id):
-            return ...
-        case _:
-            raise ...    
+            case ast.Constant(value):
+                match value:
+                    case int():
+                        return x86_ast.Immediate(value)
+                    case _:
+                        raise Exception('Unsupported value type' + repr(e))
+            case ast.Name(id):
+                return x86_ast.Variable(id)
+            case _:
+                raise Exception('Unsupported expression class' + repr(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        instr=[]
+        instructions: list[instr]=[]
         match s:
-        case Assign(var, exp):
-            
-        case _:
-            raise Exception('error in select_stmt' + repr(p)) 
-        return instr         
+            case ast.Expr(ast.Call(ast.Name('print_int'), [exp])):
+                instructions.extend([
+                    x86_ast.Instr('movq', [self.select_arg(exp), x86_ast.Reg('rdi')]),
+                    x86_ast.Callq('print_int', 1)
+                    
+                ])
+            case ast.Assign([ast.Name(id)], exp):
+                destination = x86_ast.Variable(id)
+                match exp:
+                    case ast.Constant() | ast.Name():
+                        instructions.extend([
+                            x86_ast.Instr('movq', [self.select_arg(exp), destination])
+                        ])
+                    case ast.Call(ast.Name('input_int'), args):
+                        instructions.extend([
+                            x86_ast.Callq('input_int', 0),
+                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                        ])
+
+                    case ast.UnaryOp(ast.USub(), exp):
+                        instructions.extend([
+                            x86_ast.Instr('movq', [self.select_arg(exp), x86_ast.Reg('rax')]),
+                            x86_ast.Instr('negq', [x86_ast.Reg('rax')]),
+                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            ])
+                    case ast.BinOp(exp_left, ast.Add(), exp_right):
+                        ...
+                    case ast.BinOp(exp_left, ast.Add(), exp_right):     
+                        ...
+            case _:
+                raise Exception('error in select_stmt' + repr(s)) 
+        return instructions     
 
 
     def select_instructions(self, p: Module) -> X86Program:
         program_body=[]
-
         match p:
-        case Module(body):
-            for s in body:
-                program_body.append(select_stmt(self, s))
-            return X86Program(program_body)
-        case _:
-            raise Exception('error in select_instructions' + repr(p))    
+            case Module(body):
+                for s in body:
+                    program_body.extend(self.select_stmt(s))
+                return X86Program(program_body)
+            case _:
+                raise Exception('error in select_instructions' + repr(p))    
 
     ############################################################################
     # Assign Homes
     ############################################################################
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
-        # YOUR CODE HERE
-        pass        
+        return a  
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
-        # YOUR CODE HERE
-        pass        
+        return i        
 
     def assign_homes(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
-        pass        
+        return p       
 
     ############################################################################
     # Patch Instructions
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
-        # YOUR CODE HERE
-        pass        
+        return [i]      
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
-        pass        
+        return p    
 
     ############################################################################
     # Prelude & Conclusion
     ############################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        # YOUR CODE HERE
-        pass        
-
+        return p

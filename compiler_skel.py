@@ -3,7 +3,7 @@
 import ast
 import x86_ast
 from ast import (expr, stmt, Module, Name)
-from x86_ast import (X86Program, instr, arg, Variable)
+from x86_ast import (X86Program, instr, arg, Variable, Immediate, Instr, Callq, Reg, Deref)
 import os
 
 Binding = tuple[Name, expr]
@@ -35,53 +35,53 @@ class Compiler:
             case ast.Constant(value):
                 match value:
                     case int():
-                        return x86_ast.Immediate(value)
+                        return Immediate(value)
                     case _:
                         raise Exception('Unsupported value type' + repr(e))
             case ast.Name(id):
-                return x86_ast.Variable(id)
+                return Variable(id)
             case _:
                 raise Exception('Unsupported expression class' + repr(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        instructions: list[x86_ast.instr]=[]
+        instructions: list[instr]=[]
         match s:
             case ast.Expr(ast.Call(ast.Name('print'), [exp])):
                 instructions.extend([
-                    x86_ast.Instr('movq', [self.select_arg(exp), x86_ast.Reg('rdi')]),
-                    x86_ast.Callq('print_int', 1)
+                    Instr('movq', [self.select_arg(exp), Reg('rdi')]),
+                    Callq('print_int', 1)
                     
                 ])
             case ast.Assign([ast.Name(id)], exp):
-                destination = x86_ast.Variable(id)
+                destination = Variable(id)
                 match exp:
                     case ast.Constant() | ast.Name():
                         instructions.extend([
-                            x86_ast.Instr('movq', [self.select_arg(exp), destination])
+                            Instr('movq', [self.select_arg(exp), destination])
                         ])
                     case ast.Call(ast.Name('input_int'), args):
                         instructions.extend([
-                            x86_ast.Callq('input_int', 0),
-                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            Callq('input_int', 0),
+                            Instr('movq', [Reg('rax'), destination])
                         ])
 
                     case ast.UnaryOp(ast.USub(), exp):
                         instructions.extend([
-                            x86_ast.Instr('movq', [self.select_arg(exp), x86_ast.Reg('rax')]),
-                            x86_ast.Instr('negq', [x86_ast.Reg('rax')]),
-                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp), Reg('rax')]),
+                            Instr('negq', [Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination])
                             ])
                     case ast.BinOp(exp_left, ast.Add(), exp_right):
                         instructions.extend([
-                            x86_ast.Instr('movq', [self.select_arg(exp_left), x86_ast.Reg('rax')]),
-                            x86_ast.Instr('addq', [self.select_arg(exp_right), x86_ast.Reg('rax')]),
-                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
+                            Instr('addq', [self.select_arg(exp_right), Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination])
                             ])                        
                     case ast.BinOp(exp_left, ast.Sub(), exp_right):     
                         instructions.extend([
-                            x86_ast.Instr('movq', [self.select_arg(exp_left), x86_ast.Reg('rax')]),
-                            x86_ast.Instr('subq', [self.select_arg(exp_right), x86_ast.Reg('rax')]),
-                            x86_ast.Instr('movq', [x86_ast.Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
+                            Instr('subq', [self.select_arg(exp_right), Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination])
                             ])  
             case _:
                 raise Exception('error in select_stmt' + repr(s)) 
@@ -89,7 +89,7 @@ class Compiler:
 
 
     def select_instructions(self, p: Module) -> X86Program:
-        program_body: list[x86_ast.instr] = []
+        program_body: list[instr] = []
         match p:
             case Module(body):
                 for s in body:
@@ -108,7 +108,7 @@ class Compiler:
                 if id in home.keys():
                     return home[id]
                 else:
-                    home[id]=x86_ast.Deref('rbp', -len(home)*8-8)
+                    home[id]=Deref('rbp', -len(home)*8-8)
                     return home[id]
 
             case _:
@@ -119,11 +119,11 @@ class Compiler:
                            home: dict[Variable, arg]) -> instr:
         
         match i:
-            case x86_ast.Instr(name, args):
+            case Instr(name, args):
                 new_args = []
                 for a in args:
                     new_args.append(self.assign_homes_arg(a, home))
-                return x86_ast.Instr(name, new_args)
+                return Instr(name, new_args)
             case _:
                 return i
 
@@ -139,7 +139,7 @@ class Compiler:
             new_body.append(self.assign_homes_instr(i, home))
 
         stack_offset = ((len(home)*8 + 15) // 16) * 16
-        stack_offset_instr  = x86_ast.Instr('subq', [ x86_ast.Immediate(stack_offset),x86_ast.Reg('rsp')])
+        stack_offset_instr  = Instr('subq', [ Immediate(stack_offset),Reg('rsp')])
         return X86Program([stack_offset_instr]+new_body)
    
 
@@ -148,26 +148,39 @@ class Compiler:
     ############################################################################
 
     def patch_instr(self, i: instr) -> list[instr]:
+        match i:
+            case Instr(cmd, [Deref() as source, Deref() as destination]):
+                return [
+                    Instr('movq', [source, Reg('rax')]),
+                    Instr(cmd, [Reg('rax'), destination])
+                ]
         return [i]      
 
     def patch_instructions(self, p: X86Program) -> X86Program:
-        return p    
+        new_body: list[instr] = []
+
+        if not isinstance(p, X86Program): 
+            raise Exception('wrong type')
+
+        for i in p.body:
+            new_body.extend(self.patch_instr(i))
+        return X86Program(new_body)
 
     ############################################################################
     # Prelude & Conclusion
     ############################################################################
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
-        instructions: list[x86_ast.instr] = []
+        instructions: list[instr] = []
         instructions.extend([
-            x86_ast.Instr('pushq', [x86_ast.Reg('rbp')]),
-            x86_ast.Instr('movq', [x86_ast.Reg('rsp'), x86_ast.Reg('rbp')]),
+            Instr('pushq', [Reg('rbp')]),
+            Instr('movq', [Reg('rsp'), Reg('rbp')]),
         ])
         instructions.extend(p.body)
         instructions.extend([
-            x86_ast.Instr('movq',[x86_ast.Reg('rbp'), x86_ast.Reg('rsp')]),
-            x86_ast.Instr('popq', [x86_ast.Reg('rbp')]),
-            x86_ast.Instr('retq', []),
+            Instr('movq',[Reg('rbp'), Reg('rsp')]),
+            Instr('popq', [Reg('rbp')]),
+            Instr('retq', []),
 
         ])
         return X86Program(instructions)

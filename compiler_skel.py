@@ -50,7 +50,6 @@ class Compiler:
                 instructions.extend([
                     Instr('movq', [self.select_arg(exp), Reg('rdi')]),
                     Callq('print_int', 1)
-                    
                 ])
             case ast.Assign([ast.Name(id)], exp):
                 destination = Variable(id)
@@ -59,7 +58,7 @@ class Compiler:
                         instructions.extend([
                             Instr('movq', [self.select_arg(exp), destination])
                         ])
-                    case ast.Call(ast.Name('input_int'), args):
+                    case ast.Call(ast.Name('input_int'), []):
                         instructions.extend([
                             Callq('input_int', 0),
                             Instr('movq', [Reg('rax'), destination])
@@ -83,6 +82,8 @@ class Compiler:
                             Instr('subq', [self.select_arg(exp_right), Reg('rax')]),
                             Instr('movq', [Reg('rax'), destination])
                             ])  
+                    case _: 
+                        raise Exception('error in select_stmt' + repr(s)) 
             case _:
                 raise Exception('error in select_stmt' + repr(s)) 
         return instructions     
@@ -104,12 +105,12 @@ class Compiler:
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
         match a:
-            case Variable(id):
-                if id in home.keys():
-                    return home[id]
+            case Variable() as var:
+                if var in home.keys():
+                    return home[var]
                 else:
-                    home[id]=Deref('rbp', -len(home)*8-8)
-                    return home[id]
+                    home[var]=Deref('rbp', -len(home)*8-8)
+                    return home[var]
 
             case _:
                 return a
@@ -131,7 +132,8 @@ class Compiler:
         
         new_body: list[instr] = []
         home: dict[Variable, arg] = {}
-
+        if not isinstance(p.body, list):
+            raise Exception("Expected list[instr]")
         if not isinstance(p, X86Program): 
             raise Exception('wrong type')
 
@@ -158,7 +160,8 @@ class Compiler:
 
     def patch_instructions(self, p: X86Program) -> X86Program:
         new_body: list[instr] = []
-
+        if not isinstance(p.body, list):
+            raise Exception("Expected list[instr]")
         if not isinstance(p, X86Program): 
             raise Exception('wrong type')
 
@@ -172,6 +175,8 @@ class Compiler:
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
         instructions: list[instr] = []
+        if not isinstance(p.body, list):
+            raise Exception("Expected list[instr]")
         instructions.extend([
             Instr('pushq', [Reg('rbp')]),
             Instr('movq', [Reg('rsp'), Reg('rbp')]),

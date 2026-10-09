@@ -11,8 +11,6 @@ Temporaries = list[Binding]
 
 
 class Compiler:
-
-
     ############################################################################
     # Remove Complex Operands
     ############################################################################
@@ -46,7 +44,7 @@ class Compiler:
                 raise Exception('Unsupported expression class' + repr(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
-        instructions: list[instr]=[]
+        instructions: list[x86_ast.instr]=[]
         match s:
             case ast.Expr(ast.Call(ast.Name('print'), [exp])):
                 instructions.extend([
@@ -91,7 +89,7 @@ class Compiler:
 
 
     def select_instructions(self, p: Module) -> X86Program:
-        program_body=[]
+        program_body: list[x86_ast.instr] = []
         match p:
             case Module(body):
                 for s in body:
@@ -105,25 +103,45 @@ class Compiler:
     ############################################################################
 
     def assign_homes_arg(self, a: arg, home: dict[Variable, arg]) -> arg:
-        return a  
+        match a:
+            case Variable(id):
+                if id in home.keys():
+                    return home[id]
+                else:
+                    home[id]=x86_ast.Deref('rsp', -len(home)*8-8)
+                    return home[id]
+
+            case _:
+                return a
+
 
     def assign_homes_instr(self, i: instr,
                            home: dict[Variable, arg]) -> instr:
-        return i        
+        
+        match i:
+            case x86_ast.Instr(name, args):
+                new_args = []
+                for a in args:
+                    new_args.append(self.assign_homes_arg(a, home))
+                return x86_ast.Instr(name, new_args)
+            case _:
+                return i
 
     def assign_homes(self, p: X86Program) -> X86Program:
-        # match p:
-        #     case X86Program:
-        #         body: list[instr] = p.body
+        
+        new_body: list[instr] = []
+        home: dict[Variable, arg] = {}
 
-        #         for s in body:
-        #             match s:
-        #                 case Instr()
-        #         return X86Program(program_body)
-        #     case _:
-        #         raise Exception('Error in assign_homes' + repr(p))    
+        if not isinstance(p, X86Program): 
+            raise Exception('wrong type')
 
-        return p       
+        for i in p.body:
+            new_body.append(self.assign_homes_instr(i, home))
+
+        stack_offset = ((len(home)*8 + 15) // 16) * 16
+        stack_offset_instr  = x86_ast.Instr('subq', [x86_ast.Reg('rsp'), x86_ast.Immediate(stack_offset)])
+        return X86Program([stack_offset_instr]+new_body)
+   
 
     ############################################################################
     # Patch Instructions
@@ -143,7 +161,7 @@ class Compiler:
         instructions: list[x86_ast.instr] = []
         instructions.extend([
             x86_ast.Instr('pushq', [x86_ast.Reg('rbp')]),
-            x86_ast.Instr('movq',[x86_ast.Reg('rsp'), x86_ast.Reg('rbp')]),
+            x86_ast.Instr('movq', [x86_ast.Reg('rsp'), x86_ast.Reg('rbp')]),
         ])
         instructions.extend(p.body)
         instructions.extend([

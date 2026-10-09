@@ -1,5 +1,11 @@
 # MRJP_2026_Radionov
-# 01 The language *Lqua*
+
+Tests: ```uv run python -m pytest -v test_compiler.py```
+
+To check x86 output on a example code: ```uv run python run_compiler.py```
+
+## Assignment 1
+### 01 The language *Lqua*
 
 The language *Lqua* (called $L^{mon}_{var}$ in Jeremy Siek's book)
 is described by the following abstract syntax (we use a subset of Python abstract syntax defined in the standard module `ast`):

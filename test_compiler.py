@@ -50,6 +50,9 @@ def test_select_instructions(
     name: str, source: str, inputs: str, expected: list[int]
 ) -> None:
     program = Compiler().select_instructions(ast.parse(source))
+    program = Compiler().assign_homes(program)
+    program = Compiler().patch_instructions(program)
+    program = Compiler().prelude_and_conclusion(program)
     stdout = io.StringIO()
 
     try:

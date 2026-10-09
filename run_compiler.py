@@ -8,10 +8,9 @@ from compiler_skel import Compiler
 # Replace the program between the triple quotes with your own code.
 # For now, use simple operands: x + 2 works; (x + 2) + 3 needs RCO.
 SOURCE = """
-x = 40
-y = x + 2
-z = -y
-print(z)
+x = 7
+print(x)
+print(x)
 """
 
 

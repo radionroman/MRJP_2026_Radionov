@@ -108,7 +108,7 @@ class Compiler:
                 if id in home.keys():
                     return home[id]
                 else:
-                    home[id]=x86_ast.Deref('rsp', -len(home)*8-8)
+                    home[id]=x86_ast.Deref('rbp', -len(home)*8-8)
                     return home[id]
 
             case _:
@@ -139,7 +139,7 @@ class Compiler:
             new_body.append(self.assign_homes_instr(i, home))
 
         stack_offset = ((len(home)*8 + 15) // 16) * 16
-        stack_offset_instr  = x86_ast.Instr('subq', [x86_ast.Reg('rsp'), x86_ast.Immediate(stack_offset)])
+        stack_offset_instr  = x86_ast.Instr('subq', [ x86_ast.Immediate(stack_offset),x86_ast.Reg('rsp')])
         return X86Program([stack_offset_instr]+new_body)
    
 
@@ -167,7 +167,7 @@ class Compiler:
         instructions.extend([
             x86_ast.Instr('movq',[x86_ast.Reg('rbp'), x86_ast.Reg('rsp')]),
             x86_ast.Instr('popq', [x86_ast.Reg('rbp')]),
-            x86_ast.Instr('ret', []),
+            x86_ast.Instr('retq', []),
 
         ])
         return X86Program(instructions)

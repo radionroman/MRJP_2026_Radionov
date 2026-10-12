@@ -5,6 +5,7 @@ import x86_ast
 from ast import (expr, stmt, Module, Name)
 from x86_ast import (X86Program, instr, arg, Variable, Immediate, Instr, Callq, Reg, Deref)
 import os
+import sys
 
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
@@ -66,21 +67,18 @@ class Compiler:
 
                     case ast.UnaryOp(ast.USub(), exp):
                         instructions.extend([
-                            Instr('movq', [self.select_arg(exp), Reg('rax')]),
-                            Instr('negq', [Reg('rax')]),
-                            Instr('movq', [Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp), destination]),
+                            Instr('negq', [destination]),
                             ])
                     case ast.BinOp(exp_left, ast.Add(), exp_right):
                         instructions.extend([
-                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
-                            Instr('addq', [self.select_arg(exp_right), Reg('rax')]),
-                            Instr('movq', [Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp_left), destination]),
+                            Instr('addq', [self.select_arg(exp_right), destination]),
                             ])                        
                     case ast.BinOp(exp_left, ast.Sub(), exp_right):     
                         instructions.extend([
-                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
-                            Instr('subq', [self.select_arg(exp_right), Reg('rax')]),
-                            Instr('movq', [Reg('rax'), destination])
+                            Instr('movq', [self.select_arg(exp_left), destination]),
+                            Instr('subq', [self.select_arg(exp_right),destination]),
                             ])  
                     case _: 
                         raise Exception('error in select_stmt' + repr(s)) 
@@ -175,17 +173,46 @@ class Compiler:
 
     def prelude_and_conclusion(self, p: X86Program) -> X86Program:
         instructions: list[instr] = []
+
         if not isinstance(p.body, list):
             raise Exception("Expected list[instr]")
+
         instructions.extend([
             Instr('pushq', [Reg('rbp')]),
             Instr('movq', [Reg('rsp'), Reg('rbp')]),
         ])
+
         instructions.extend(p.body)
+
         instructions.extend([
+            Instr('movq', [Immediate(0), Reg('rax')]),
             Instr('movq',[Reg('rbp'), Reg('rsp')]),
             Instr('popq', [Reg('rbp')]),
             Instr('retq', []),
 
         ])
         return X86Program(instructions)
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: python compile.py <source_file>")
+        sys.exit(1)
+    
+    filename = sys.argv[1]
+    
+    #open the file, parse it with ast and apply the compiler passes
+    with open(filename, 'r') as f:
+        source = f.read()
+        tree = ast.parse(source)
+        compiler = Compiler()
+        program_step2 = compiler.select_instructions(tree)
+        program_step3 = compiler.assign_homes(program_step2)
+        program_step4 = compiler.patch_instructions(program_step3)
+        program_step5 = compiler.prelude_and_conclusion(program_step4)
+        print(program_step5)
+
+
+
+if __name__ == "__main__":
+
+    main()

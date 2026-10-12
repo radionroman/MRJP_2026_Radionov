@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.13"
+
+[[package]]
+name = "RadionovMRJP"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "mrj-support" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "mrj-support", editable = "../support" }]
+
+[[package]]
+name = "mrj-support"
+version = "0.1.0"
+source = { editable = "../support" }

@@ -73,8 +73,9 @@ class Compiler:
                             ])
                     case ast.BinOp(exp_left, ast.Add(), exp_right):
                         instructions.extend([
-                            Instr('movq', [self.select_arg(exp_left), destination]),
-                            Instr('addq', [self.select_arg(exp_right), destination]),
+                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
+                            Instr('addq', [self.select_arg(exp_right), Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination])
                             ])                        
                     case ast.BinOp(exp_left, ast.Sub(), exp_right):     
                         instructions.extend([

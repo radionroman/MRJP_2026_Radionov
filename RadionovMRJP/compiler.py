@@ -6,6 +6,7 @@ from ast import (expr, stmt, Module, Name)
 from x86_ast import (X86Program, instr, arg, Variable, Immediate, Instr, Callq, Reg, Deref)
 import os
 import sys
+import x86_interp
 
 Binding = tuple[Name, expr]
 Temporaries = list[Binding]
@@ -77,8 +78,9 @@ class Compiler:
                             ])                        
                     case ast.BinOp(exp_left, ast.Sub(), exp_right):     
                         instructions.extend([
-                            Instr('movq', [self.select_arg(exp_left), destination]),
-                            Instr('subq', [self.select_arg(exp_right),destination]),
+                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
+                            Instr('subq', [self.select_arg(exp_right),Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination]),
                             ])  
                     case _: 
                         raise Exception('error in select_stmt' + repr(s)) 
@@ -210,7 +212,6 @@ def main():
         program_step4 = compiler.patch_instructions(program_step3)
         program_step5 = compiler.prelude_and_conclusion(program_step4)
         print(program_step5)
-
 
 
 if __name__ == "__main__":

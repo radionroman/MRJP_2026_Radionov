@@ -39,11 +39,11 @@ class Compiler:
                     case int():
                         return Immediate(value)
                     case _:
-                        raise Exception('Unsupported value type' + repr(e))
+                        raise Exception('select_arg(e) -> Unsupported value class: ' + repr(e))
             case ast.Name(id):
                 return Variable(id)
             case _:
-                raise Exception('Unsupported expression class' + repr(e))
+                raise Exception('select_arg(e) -> Unsupported expression class: ' + repr(e))
 
     def select_stmt(self, s: stmt) -> list[instr]:
         instructions: list[instr]=[]
@@ -84,7 +84,7 @@ class Compiler:
                             Instr('movq', [Reg('rax'), destination]),
                             ])  
                     case _: 
-                        raise Exception('error in select_stmt' + repr(s)) 
+                        raise Exception('select_stmt(s) -> Unsupported assignment statement: ' + repr(s)) 
             case _:
                 raise Exception('error in select_stmt' + repr(s)) 
         return instructions     
@@ -112,7 +112,6 @@ class Compiler:
                 else:
                     home[var]=Deref('rbp', -len(home)*8-8)
                     return home[var]
-
             case _:
                 return a
 

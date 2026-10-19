@@ -13,18 +13,74 @@ Temporaries = list[Binding]
 
 
 class Compiler:
+    def __init__(self) -> None:
+        self.temp_counter = 1
+        self.stack_offset = 0
+
     ############################################################################
     # Remove Complex Operands
     ############################################################################
 
+    def fresh(self) -> str:
+        name = "%tmp"+str(self.temp_counter)
+        self.temp_counter += 1
+        return ast.Name(name)
+
     def rco_exp(self, e: expr, need_atomic : bool) -> tuple[expr, Temporaries]:
-        return (e, [])
+        match e:
+            case ast.Expr(ast.Call(ast.Name('print'), [exp])):
+                exp2, tmps = self.rco_exp(exp, True)
+                e = ast.Expr(ast.Call(ast.Name('print'), [exp2]))
+                return (e, tmps) 
+            case ast.Expr(ast.Call(ast.Name('input_int'), [])):
+                if ()
+                return ast.Assign(fresh())
+            case ast.Assign(var, exp):
+                exp2, tmps = self.rco_exp(exp, False)
+                e = ast.Assign(var, exp2)
+                return (e, tmps)
+            case ast.Constant() | ast.Name():
+                return (e, [])
+            case ast.UnaryOp(operation, exp):
+                exp2, tmps = self.rco_exp(exp, True)
+                e = ast.UnaryOp(operation, exp2)
+                if need_atomic:
+                    t = self.fresh()
+                    return (t, tmps + [(t, e)])
+                else:
+                    return (e, tmps)
+            case ast.BinOp(exp_left, operation, exp_right):
+                exp_left2, tmps_left = self.rco_exp(exp_left, True)
+                exp_right2, tmps_right = self.rco_exp(exp_right, True)
+                e = ast.BinOp(exp_left2, operation, exp_right2)
+                if need_atomic:
+                    t = self.fresh()
+                    return (t, tmps_left + tmps_right + [(t, e)])
+                else:
+                    return (e, tmps_left + tmps_right)
+            case _:
+                raise Exception("Unsupported expression type in rco_exp" + repr(e))
+            
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-        return [s]        
+        statements:list[stmt] = []
+        exp, tmps = self.rco_exp(s, False)
+        print(tmps)
+        for (var, e) in tmps:
+            statements.append(ast.Assign([ast.Name(var)], e))
+        statements.append(exp)
+        return statements    
 
     def remove_complex_operands(self, p: Module) -> Module:
-        return p               
+        new_body:list[stmt] = []
+        match p:
+            case Module(body):
+                for s in body:
+                    new_body.extend(self.rco_stmt(s))
+            case _:
+                raise Exception('error in remove_complex_operands' + repr(p)) 
+
+        return Module(new_body)         
 
     ############################################################################
     # Select Instructions
@@ -83,6 +139,12 @@ class Compiler:
                             Instr('subq', [self.select_arg(exp_right),Reg('rax')]),
                             Instr('movq', [Reg('rax'), destination]),
                         ])  
+                    case ast.BinOp(exp_left, ast.Mult(), exp_right):     
+                        instructions.extend([
+                            Instr('movq', [self.select_arg(exp_left), Reg('rax')]),
+                            Instr('imulq', [self.select_arg(exp_right),Reg('rax')]),
+                            Instr('movq', [Reg('rax'), destination]),
+                        ])                         
                     case _: 
                         raise Exception('select_stmt(s) -> Unsupported assignment statement: ' + repr(s)) 
             case _:
@@ -140,9 +202,8 @@ class Compiler:
         for i in p.body:
             new_body.append(self.assign_homes_instr(i, home))
 
-        stack_offset = ((len(home)*8 + 15) // 16) * 16
-        stack_offset_instr  = Instr('subq', [ Immediate(stack_offset),Reg('rsp')])
-        return X86Program([stack_offset_instr]+new_body)
+        self.stack_offset = ((len(home)*8 + 15) // 16) * 16
+        return X86Program(new_body)
    
 
     ############################################################################
@@ -182,6 +243,7 @@ class Compiler:
         instructions.extend([
             Instr('pushq', [Reg('rbp')]),
             Instr('movq', [Reg('rsp'), Reg('rbp')]),
+            Instr('subq', [ Immediate(self.stack_offset),Reg('rsp')])
         ])
 
         instructions.extend(p.body)
@@ -207,7 +269,8 @@ def main():
         source = f.read()
         tree = ast.parse(source)
         compiler = Compiler()
-        program_step2 = compiler.select_instructions(tree)
+        program_step1 = compiler.remove_complex_operands(tree)
+        program_step2 = compiler.select_instructions(program_step1)
         program_step3 = compiler.assign_homes(program_step2)
         program_step4 = compiler.patch_instructions(program_step3)
         program_step5 = compiler.prelude_and_conclusion(program_step4)

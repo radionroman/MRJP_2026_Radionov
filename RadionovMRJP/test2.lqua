@@ -1,4 +1,5 @@
-x = input_int()
-y = input_int()
-y = x - y
-print(y)
+a = 10
+b = 5
+c = 3
+delta = b*b - 4*a*c
+print(delta + 4 * 7)

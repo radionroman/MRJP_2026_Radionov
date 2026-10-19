@@ -1,3 +1,4 @@
+
 	.globl main
 main:
     pushq %rbp
@@ -8,7 +9,7 @@ main:
     callq input_int
     movq %rax, -16(%rbp)
     movq -8(%rbp), %rax
-    subq -16(%rbp), %rax
+    imulq -16(%rbp), %rax
     movq %rax, -16(%rbp)
     movq -16(%rbp), %rdi
     callq print_int

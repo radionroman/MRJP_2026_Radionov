@@ -21,26 +21,24 @@ class Compiler:
     # Remove Complex Operands
     ############################################################################
 
-    def fresh(self) -> str:
+    # The fresh method generates a new temporary variable name each time it is called.
+    def fresh(self) -> Name:
         name = "%tmp"+str(self.temp_counter)
         self.temp_counter += 1
         return ast.Name(name)
 
     def rco_exp(self, e: expr, need_atomic : bool) -> tuple[expr, Temporaries]:
         match e:
-            case ast.Expr(ast.Call(ast.Name('print'), [exp])):
-                exp2, tmps = self.rco_exp(exp, True)
-                e = ast.Expr(ast.Call(ast.Name('print'), [exp2]))
-                return (e, tmps) 
-            case ast.Expr(ast.Call(ast.Name('input_int'), [])):
-                if ()
-                return ast.Assign(fresh())
-            case ast.Assign(var, exp):
-                exp2, tmps = self.rco_exp(exp, False)
-                e = ast.Assign(var, exp2)
-                return (e, tmps)
             case ast.Constant() | ast.Name():
                 return (e, [])
+            case ast.Call(ast.Name('input_int'), []):
+                e = ast.Call(ast.Name('input_int'), [])
+                if need_atomic:
+                    t = self.fresh()
+                    return (t, [(t, e)])
+                else:
+                    return (e, [])
+            
             case ast.UnaryOp(operation, exp):
                 exp2, tmps = self.rco_exp(exp, True)
                 e = ast.UnaryOp(operation, exp2)
@@ -49,6 +47,7 @@ class Compiler:
                     return (t, tmps + [(t, e)])
                 else:
                     return (e, tmps)
+                    
             case ast.BinOp(exp_left, operation, exp_right):
                 exp_left2, tmps_left = self.rco_exp(exp_left, True)
                 exp_right2, tmps_right = self.rco_exp(exp_right, True)
@@ -59,17 +58,27 @@ class Compiler:
                 else:
                     return (e, tmps_left + tmps_right)
             case _:
-                raise Exception("Unsupported expression type in rco_exp" + repr(e))
+                raise Exception("Unsupported expression type in rco_exp " + repr(e))
             
 
     def rco_stmt(self, s: stmt) -> list[stmt]:
-        statements:list[stmt] = []
-        exp, tmps = self.rco_exp(s, False)
-        print(tmps)
-        for (var, e) in tmps:
-            statements.append(ast.Assign([ast.Name(var)], e))
-        statements.append(exp)
-        return statements    
+        result: stmt
+        tmps: Temporaries
+        
+        match s:
+            case ast.Assign(targets, exp):
+                exp2, tmps = self.rco_exp(exp, False)
+                result = ast.Assign(targets, exp2)
+            case ast.Expr(ast.Call(ast.Name('print'), [exp])):
+                exp2, tmps = self.rco_exp(exp, True)
+                result = ast.Expr(ast.Call(ast.Name('print'), [exp2], []))
+            case _:
+                raise Exception("Unsupported statement in rco_stmt: " + repr(s))
+        statements: list[stmt] = []
+        for var, value in tmps:
+            statements.append(ast.Assign([var], value))
+        statements.append(result)
+        return statements
 
     def remove_complex_operands(self, p: Module) -> Module:
         new_body:list[stmt] = []

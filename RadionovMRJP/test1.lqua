@@ -1,5 +1,16 @@
-a = 10
-b = 5
-c = 3
-delta = b * b - 4 * a * c
-print(delta)
+a1 = input_int()
+a2 = input_int()
+a3 = input_int()
+a4 = input_int()
+ogon = 0
+#a5 = input_int()
+#ogon = 0 + a5
+#a6 = input_int()
+#ogon = 0 + a5 + a6
+#a7 = input_int()
+#ogon = 0 + a5 + a6 + a7
+#a8 = input_int()
+#ogon = 0 + a5 + a6 + a7 + a8
+print(a1+a2+a3+a4+ogon)
+
+# 30

@@ -1,1 +1,18 @@
-print(-(2 + 3) * (10 - 4) + 7)
+a = 10
+a = 3 * 5
+print(a)
+a = a * 5
+print(a)
+a = 5 * a
+print(a)
+a = a * a
+
+b = 20
+print(b)
+
+c = 30
+print(c)
+
+# 10
+# 20
+# 30

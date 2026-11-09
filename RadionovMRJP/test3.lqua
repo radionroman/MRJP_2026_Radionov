@@ -1,2 +1,7 @@
-result = input_int() - (input_int() + input_int())
-print(result)
+a = input_int()
+b = input_int()
+
+print(a)
+print(b)
+print(a + b)
+
